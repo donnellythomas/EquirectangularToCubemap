@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <opencv2/opencv.hpp>
 using namespace cv;
+
+//createCubeMapFace implemented by https://stackoverflow.com/a/34720686
+
 // Define our six cube faces. 
 // 0 - 3 are side faces, clockwise order
 // 4 and 5 are top and bottom, respectively
