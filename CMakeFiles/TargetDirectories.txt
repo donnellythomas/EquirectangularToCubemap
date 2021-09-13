@@ -1,0 +1,3 @@
+/home/thomasdonnelly/School/Thesis/opencv_test/CMakeFiles/rebuild_cache.dir
+/home/thomasdonnelly/School/Thesis/opencv_test/CMakeFiles/edit_cache.dir
+/home/thomasdonnelly/School/Thesis/opencv_test/CMakeFiles/DisplayImage.dir
