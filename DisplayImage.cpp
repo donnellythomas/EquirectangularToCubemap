@@ -3,34 +3,6 @@
 #include <opencv2/opencv.hpp>
 using namespace cv;
 
-float *uvToXYZ(float u, float v) {
-    float lat = v * M_PI - M_PI / 2.0;
-    float lon = u * 2.0 * M_PI - M_PI;
-    printf("lat: %f, lon: %f\n", lat, lon);
-
-    static float point[3];
-    point[0] = cos(lat) * sin(lon);
-    point[1] = sin(lat);
-    point[2] = cos(lat) * cos(lon);
-
-    return point;
-}
-float *xyzToUV(float x, float y, float z) {
-    // printf("Y:%f \n", y);
-    float lat = asin(y);
-    // printf("lat: %f \n", lat);
-
-    float lon = atan2(x, z);
-    // printf("X: %f, Y:%f, Z:%f\n", x, y, z);
-
-    printf("lat: %f, lon: %f\n", lat, lon);
-    static float uv[2];
-    uv[0] = (lon + M_PI) / (2.0 * M_PI);
-    uv[1] = (lat + M_PI / 2.0) / M_PI;
-    // uv[0] = atan2(x, z);
-    // uv[1] = asin(y);
-    return uv;
-}
 static float *quaternion_mult(const float q[4], const float r[4]) {
     static float ret[4];
     // printf("before1 w: %f, X: %f, Y: %f, Z: %f\n", q[0], q[1], q[2], q[3]);
@@ -43,69 +15,16 @@ static float *quaternion_mult(const float q[4], const float r[4]) {
     float r2 = r[2];
     float r3 = r[3];
     ret[0] = r0 * q0 - r1 * q1 - r2 * q2 - r3 * q3;
-    // printf("before2 w: %f, X: %f, Y: %f, Z: %f\n", q[0], q[1], q[2], q[3]);
-
     ret[1] = r0 * q1 + r1 * q0 - r2 * q3 + r3 * q2;
-    // printf("before3 w: %f, X: %f, Y: %f, Z: %f\n", q[0], q[1], q[2], q[3]);
-
     ret[2] = r0 * q2 + r1 * q3 + r2 * q0 - r3 * q1;
-    // printf("before4 w: %f, X: %f, Y: %f, Z: %f\n", q[0], q[1], q[2], q[3]);
-
-    // printf("before2 w: %f, X: %f, Y: %f, Z: %f\n", r[0], r[1], r[2], r[3]);
     ret[3] = r0 * q3 - r1 * q2 + r2 * q1 + r3 * q0;
-
-    // printf("w: %f, X: %f, Y: %f, Z: %f\n", ret[0], ret[1], ret[2], ret[3]);
-
     return ret;
-}
-float *uvRotation(float u, float v, float *rotation) {
-    float *xyz;
-    printf("\nU:%f, V:%f\n", u, v);
-    xyz = uvToXYZ(u, v);
-    printf("X: %f, Y:%f, Z:%f\n", xyz[0], xyz[1], xyz[2]);
-    float p[4];
-    p[0] = 0;
-    p[1] = xyz[0];
-    p[2] = xyz[1];
-    p[3] = xyz[2];
-    // float rotationInv[4] = {rotation[0], -rotation[1], -rotation[2],
-    //                         -rotation[3]};
-    // float *p_ret = quaternion_mult((float *)p, (float *)rotation);
-    // p_ret = quaternion_mult((float *)p_ret, (float *)rotationInv);
-    float *p_ret = p;
-    // printf("AFTER ROTATION\n");
-    printf("X: %f, Y:%f, Z:%f\n", p_ret[1], p_ret[2], p_ret[3]);
-
-    static float *uv;
-    uv = xyzToUV(p_ret[1], p_ret[2], p_ret[3]);
-    printf("U:%f, V:%f\n", uv[0], uv[1]);
-
-    // printf("U:%f, V:%f\n", uv[0], uv[1]);
-
-    return uv;
-}
-float *uvw_rotation(float u, float v, float *rotation) {
-    float p[4];
-    p[0] = 0;
-    p[1] = u;
-    p[2] = v;
-    p[3] = 1;
-    float rotationInv[4] = {rotation[0], -rotation[1], -rotation[2],
-                            -rotation[3]};
-    float *p_ret = quaternion_mult((float *)p, (float *)rotation);
-    p_ret = quaternion_mult((float *)p_ret, (float *)rotationInv);
-    // printf("X: %f, Y:%f, Z:%f\n", p_ret[1], p_ret[2], p_ret[3]);
-
-    static float uv[2];
-    uv[0] = p_ret[1];
-    uv[1] = p_ret[2];
-    return uv;
 }
 
 float *new_rotation(float u, float v, float *rotation, float inHeight,
                     float inWidth) {
-    u = u / inWidth;
-    v = v / inHeight;
+    // Helpful resource for this function
+    // https://github.com/DanielArnett/360-VJ/blob/d50b68d522190c726df44147c5301a7159bf6c86/ShaderMaker.cpp#L678
     float latitude = v * M_PI - M_PI / 2.0;
     float longitude = u * 2.0 * M_PI - M_PI;
     // Create a ray from the latitude and longitude
@@ -126,18 +45,7 @@ float *new_rotation(float u, float v, float *rotation, float inHeight,
     float z = p_ret[3];
     // Convert back to latitude and longitude
     latitude = asin(y);
-    // Manually implement `longitude = atan2(x, z);`
-    if (z > 0.0) {
-        longitude = atan(x / z);
-    } else if (z < 0.0 && x >= 0.0) {
-        longitude = atan(x / z) + M_PI;
-    } else if (z < 0.0 && x < 0.0) {
-        longitude = atan(x / z) - M_PI;
-    } else if (z == 0.0 && x > 0.0) {
-        longitude = M_PI / 2.0;
-    } else if (z == 0.0 && x < 0.0) {
-        longitude = -M_PI / 2.0;
-    }
+    longitude = atan2(x, z);
     // Convert back to the normalized M_PIxel coordinate
     x = (longitude + M_PI) / (2.0 * M_PI);
     y = (latitude + M_PI / 2.0) / M_PI;
@@ -145,42 +53,9 @@ float *new_rotation(float u, float v, float *rotation, float inHeight,
     // Convert to xy source M_PIxel coordinate
     uv[1] = y * inHeight;
     uv[0] = x * inWidth;
+
     return uv;
 }
-// float *pointToLatLon(float x, float y, float z) {
-//     x = asin(y);
-//     y = atan2(x, z);
-//     float *latlon;
-//     latlon[0] = x;
-//     latlon[1] = y;
-//     return latlon;
-// }
-// float *latLonToUv(float lat, float lon) {
-//     float *uv;
-//     uv[0] = (lon + M_PI) / (2.0 * M_PI);
-//     uv[1] = (lat + M_PI / 2.0) / M_PI;
-//     return uv;
-// }
-// float *point_rotation_by_quaternion(float point[3], float q[4]) {
-//     float r[4];
-//     r[0] = 0;
-//     r[1] = point[1];
-//     r[2] = point[2];
-//     r[3] = point[3];
-//     float q_conj[4];
-//     q_conj[0] = q[0];
-//     q_conj[1] = -1 * q[1];
-//     q_conj[2] = -1 * q[2];
-//     q_conj[4] = -1 * q[3];
-//     float *result = quaternion_mult(quaternion_mult(q, r), q_conj);
-//     float *ret;
-//     ret[0] = result[1];
-//     ret[1] = result[2];
-//     ret[2] = result[3];
-//     return ret;
-// }
-// Convert latitude, longitude to x, y pixel coordinates on an
-// equirectangular
 
 // createCubeMapFace implemented by https://stackoverflow.com/a/34720686
 
@@ -211,12 +86,6 @@ inline void createCubeMapFace(const Mat &in, Mat &face, float rotation[4],
 
     float ftu = faceTransform[faceId][0];
     float ftv = faceTransform[faceId][1];
-    // printf("\nftu: %f, ftv: %f\n", ftu, ftv);
-    // float *uv;
-    // uv = uvw_rotation(ftu, ftv, (float *)rotation);
-    // ftu = uv[0];
-    // ftv = uv[1];
-    // printf("ftu: %f, ftv: %f\n", uv[0], uv[1]);
 
     // For each point in the target image,
     // calculate the corresponding source coordinates.
@@ -260,8 +129,6 @@ inline void createCubeMapFace(const Mat &in, Mat &face, float rotation[4],
             }
 
             // Map from angular coordinates to [-1, 1], respectively.
-            // printf("U:%f ", u);
-            // printf("V:%f\n", v);
 
             u = u / (M_PI);
             v = v / (M_PI / 2);
@@ -286,13 +153,15 @@ inline void createCubeMapFace(const Mat &in, Mat &face, float rotation[4],
             // Map from [-1, 1] to in texture space
             u = u / 2.0f + 0.5f;
             v = v / 2.0f + 0.5f;
-            u = u * (inWidth - 1);
-            v = v * (inHeight - 1);
+
+            // once in texture space replace current point with point after
+            // rotation
             float *uv;
             uv = new_rotation(u, v, (float *)rotation, inHeight - 1,
                               inWidth - 1);
             u = uv[0];
             v = uv[1];
+
             // Save the result for this pixel in map
 
             mapx.at<float>(x, y) = u;
@@ -358,14 +227,13 @@ int main(int argc, char **argv) {
     float rotation[4] = {1, 0, 0, 0};
     // float rotation2[4] = {0.9238795, 0, 0.3826834, 0};// y 45
 
-    float rotation2[4] = {0.9238795, 0, 0, 0.3826834};
+    float rotation2[4] = {0.9238795, 0, 0, 0.3826834};  // x 45
 
     Mat out = assembleCubemap(in, 250, rotation);
     Mat out2 = assembleCubemap(in, 250, rotation2);
 
-    // imshow("Input", in);
     imshow("default Image", out);
-    // imwrite("no_rotation.png", out);
+    imwrite("no_rotation.png", out);
     imshow("modified Image", out2);
 
     waitKey(0);
